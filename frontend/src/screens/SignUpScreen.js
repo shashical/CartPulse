@@ -8,6 +8,10 @@ import { useContext, useEffect, useState } from 'react';
 import { Store } from '../Store';
 import { toast } from 'react-toastify';
 import { getError } from '../utils';
+import { Api } from 'zerobounce';
+import LoadingBox from '../components/LoadingBox';
+
+const ZEROBOUNCE_API_KEY = process.env.REACT_APP_ZEROBOUNCE_API_KEY;
 
 const SignUpScreen = () => {
   const navigate = useNavigate();
@@ -19,14 +23,43 @@ const SignUpScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [processing, setProcessing] = useState(false);
 
   const { state, dispatch: ctxDispatch } = useContext(Store);
   const { userInfo } = state;
+
+  const verifyEmail = async (email) => {
+    try {
+      const api = new Api(ZEROBOUNCE_API_KEY);
+      const result = await api.validate(email);
+
+      if (result.isSuccess()) {
+        return result.success.status === 'valid';
+      } else {
+        return null;
+      }
+    } catch (error) {
+      return null;
+    }
+  };
 
   const submitHandler = async (event) => {
     event.preventDefault();
     if (password !== confirmPassword) {
       toast.error('Passwords do not match');
+      return;
+    }
+
+    setProcessing(true);
+    const isEmailValid = await verifyEmail(email);
+
+    if (isEmailValid === null) {
+      toast.error('Error verifying email address. Please try again.');
+      setProcessing(false);
+      return;
+    } else if (!isEmailValid) {
+      toast.error('Invalid email address');
+      setProcessing(false);
       return;
     }
 
@@ -89,7 +122,7 @@ const SignUpScreen = () => {
           />
         </Form.Group>
         <div className="mb-3">
-          <Button type="submit">Sign Up</Button>
+          {processing ? <LoadingBox /> : <Button type="submit">Sign Up</Button>}
         </div>
         <div className="mb-3">
           Already have an account?{' '}
